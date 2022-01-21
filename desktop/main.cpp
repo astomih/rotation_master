@@ -19,8 +19,14 @@ limitations under the License.
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <cstdlib>
+#include <functional>
 #include <string>
 #include <memory>
+
+/* for Emscripten */
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 /* for GLFW */
 #include <GLFW/glfw3.h>
@@ -49,8 +55,13 @@ static constexpr float PROJECTION_OFFSET_CY = 0.2f; /* add offset for cx because
 
 
 /*** Global variable ***/
+std::function<void()> loop;
 
 /*** Function ***/
+
+/* for Emscripten */
+void main_loop(){ loop(); }
+
 static void ConvertAll(InputContainer& input_container, OutputContainer& output_container, bool is_normalize_rotation_matrix)
 {
     /* First, Convert the selected input representation to rotatin matrix (mat3_rot) */
@@ -136,9 +147,9 @@ int main(int argc, char *argv[])
     std::unique_ptr<Shape> object_axes = ObjectData::CreateAxes(1.0f, 0.1f, { 0.8f, 0.0f, 0.0f }, { 0.0f, 0.8f, 0.0f }, { 0.0f, 0.0f, 0.8f });
     std::unique_ptr<Shape> object = ObjectData::CreateMonolith(0.5f, 0.8f, 0.01f, { 0.3f, 0.75f, 1.0f }, { 0.5f, 0.5f, 0.5f });
 
-    /*** Start loop ***/
-    while(1) {
-        if (my_window.FrameStart() == false) break;
+    /*** Set loop ***/
+    loop = [&](){
+        if (my_window.FrameStart() == false) return;
 
         /* Draw bases */
         if (setting_container.is_draw_ground) {
@@ -196,7 +207,13 @@ int main(int argc, char *argv[])
 
         /* Update display */
         my_window.SwapBuffers();
-    }
+    };
+
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(main_loop, 60, true);
+#else
+    while(1) loop();
+#endif
     
     /*** Finalize ***/
     glfwTerminate();
